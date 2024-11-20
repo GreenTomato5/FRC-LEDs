@@ -1,107 +1,69 @@
-// Define pins
-const int pwmInputPin = A0;    // Analog input pin for PWM signal
-const int redPin = 9;          // RGB LED red pin (PWM capable)
-const int greenPin = 8;        // RGB LED green pin (PWM capable)
-const int bluePin = 7;         // RGB LED blue pin (PWM capable)
+#include <Adafruit_NeoPixel.h>
 
-// Structure to define LED states
+#define PIN 6            // Data pin to first LED
+#define NUM_LEDS 30      // Number of LEDs in the chain
+
+Adafruit_NeoPixel strip(NUM_LEDS, PIN, NEO_GRB + NEO_KHZ800);
+
+unsigned long pulseWidth = 0;  // Store the pulse width from A0
+
+// Structure to define states based on PWM input
 struct LedState {
-  int stateId;        // State identifier (matches incoming PWM value)
-  int redValue;       // 0-255 for red LED
-  int greenValue;     // 0-255 for green LED
-  int blueValue;      // 0-255 for blue LED
-  const char* name;   // State name for debugging
+  unsigned long minPulseWidth; // Minimum pulse width for this state
+  unsigned long maxPulseWidth; // Maximum pulse width for this state
+  uint32_t color;             // RGB color value (use Adafruit's RGB format)
+  const char* name;           // Name of the state for debugging
 };
 
+// Define the possible states based on pulse width ranges
 const LedState LED_STATES[] = {
-  {0, 255, 0, 0, "Red"},      // Pure red
-  {10, 255, 128, 0, "Orange"},// Orange
-  {20, 255, 255, 0, "Yellow"},// Yellow 
-  {30, 0, 255, 0, "Green"},   // Pure green
-  {40, 0, 255, 255, "Cyan"},  // Cyan 
-  {50, 0, 0, 255, "Blue"},    // Pure blue
-  {60, 128, 0, 255, "Purple"} // Purple
+  {0, 1024, strip.Color(255, 0, 0), "Red"},      // Pulse width 0-1024 => Red
+  {1025, 2048, strip.Color(0, 255, 0), "Green"}, // Pulse width 1025-2048 => Green
+  {2049, 3072, strip.Color(0, 0, 255), "Blue"},  // Pulse width 2049-3072 => Blue
+  {3073, 4096, strip.Color(255, 255, 255), "White"} // Pulse width 3073-4096 => White
 };
 
 const int NUM_STATES = sizeof(LED_STATES) / sizeof(LED_STATES[0]);
-int currentState = -1;          // Current state (-1 means no valid state yet)
-int lastUnknownState = -1;      // Cache for the last unknown state
-unsigned long pulseWidth = 0;
-const int STATE_TOLERANCE = 4;  // TODO: Bro this is like not very many times like its kinda low idk
 
 void setup() {
-  // Configure pins
-  pinMode(pwmInputPin, INPUT);
-  pinMode(redPin, OUTPUT);
-  pinMode(greenPin, OUTPUT);
-  pinMode(bluePin, OUTPUT);
+  strip.begin(); // Initialize the LED strip
+  strip.show();  // Initialize all LEDs to 'off'
+  
+  pinMode(A0, INPUT);  // Set A0 as input for PWM signal
   
   // Initialize serial for debugging
   Serial.begin(9600);
   Serial.println("RGB LED Controller Started");
-  Serial.println("Available States:");
-  for (int i = 0; i < NUM_STATES; i++) {
-    Serial.print("State at ");
-    Serial.print(LED_STATES[i].stateId);
-    Serial.print("µs: ");
-    Serial.println(LED_STATES[i].name);
-  }
-}
-
-// Optimized state finding function with caching
-int findState(unsigned long pulseWidth) {
-  // First check if this is the same unknown state as before
-  if (lastUnknownState != -1) {
-    int expectedPulse = LED_STATES[lastUnknownState].stateId;
-    if (abs((int)pulseWidth - expectedPulse) < STATE_TOLERANCE) {
-      return lastUnknownState;
-    }
-  }
-  
-  // If not cached or cache miss, search through states
-  for (int i = 0; i < NUM_STATES; i++) {
-    if (abs((int)pulseWidth - LED_STATES[i].stateId) < STATE_TOLERANCE) {
-      lastUnknownState = i;  // Cache the found state
-      return i;
-    }
-  }
-  
-  lastUnknownState = -1;  // Reset cache if no state found
-  return -1;
-}
-
-void setLedColor(const LedState& state) {
-  analogWrite(redPin, state.redValue);
-  analogWrite(greenPin, state.greenValue);
-  analogWrite(bluePin, state.blueValue);
 }
 
 void loop() {
-  // Read the pulse width
-  pulseWidth = pulseIn(pwmInputPin, HIGH);
+  // Read the PWM pulse width from A0
+  pulseWidth = pulseIn(A0, HIGH);
   
-  // Find matching state
-  int newState = findState(pulseWidth);
-  
-  // Update LED if state changed
-  if (newState != -1 && newState != currentState) {
-    currentState = newState;
-    setLedColor(LED_STATES[currentState]);
-    
-    // Debug output
-    Serial.print("Pulse Width: ");
-    Serial.print(pulseWidth);
-    Serial.print(" µs | State: ");
-    Serial.print(LED_STATES[currentState].stateId);
-    Serial.print(" (");
-    Serial.print(LED_STATES[currentState].name);
-    Serial.print(") | RGB: ");
-    Serial.print(LED_STATES[currentState].redValue);
-    Serial.print(",");
-    Serial.print(LED_STATES[currentState].greenValue);
-    Serial.print(",");
-    Serial.println(LED_STATES[currentState].blueValue);
+  // Find the corresponding color state based on the pulse width
+  for (int i = 0; i < NUM_STATES; i++) {
+    if (pulseWidth >= LED_STATES[i].minPulseWidth && pulseWidth <= LED_STATES[i].maxPulseWidth) {
+      // Set all LEDs to the corresponding color for this state
+      setLedColor(LED_STATES[i].color);
+      
+      // Debug output
+      Serial.print("Pulse Width: ");
+      Serial.print(pulseWidth);
+      Serial.print(" µs | State: ");
+      Serial.print(LED_STATES[i].name);
+      Serial.print(" | Color: ");
+      Serial.println(LED_STATES[i].color, HEX);
+      
+      break;
+    }
   }
   
-  delay(20);
+  delay(20); 
+}
+
+void setLedColor(uint32_t color) {
+  for (int i = 0; i < NUM_LEDS; i++) {
+    strip.setPixelColor(i, color);  // Set the color for each LED
+  }
+  strip.show();  // Update the LEDs with the new color data
 }

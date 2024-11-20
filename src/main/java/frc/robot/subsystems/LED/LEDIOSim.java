@@ -11,8 +11,8 @@ public class LEDIOSim implements LEDIO {
 
     @Override
     public void setPWMState(int signal) {
-        led.setSpeed(signal);
-        ledSim.setSpeed(signal);
+        led.setPulseTimeMicroseconds(signal);
+        ledSim.setPulseMicrosecond(signal);
         setSpeed = signal;
     }
 
