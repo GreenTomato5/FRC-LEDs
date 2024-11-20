@@ -1,7 +1,7 @@
 #include <Adafruit_NeoPixel.h>
 
 #define PIN 6            // Data pin to first LED
-#define NUM_LEDS 30      // Number of LEDs in the chain
+#define NUM_LEDS 300      // Number of LEDs in the chain (fake)
 
 Adafruit_NeoPixel strip(NUM_LEDS, PIN, NEO_GRB + NEO_KHZ800);
 
