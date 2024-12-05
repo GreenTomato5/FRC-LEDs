@@ -6,8 +6,9 @@
 Adafruit_NeoPixel strip(NUM_LEDS, PIN, NEO_GRB + NEO_KHZ800);
 
 unsigned long pulseWidth = 0;  // Store the pulse width from A0
+unsigned long previousPulseWidth = 0; // Store the previous pulse width from A0 (lil optimization)
 
-// Structure to define states based on PWM input
+// Defines LED state structure (ahh structs are so nice)
 struct LedState {
   unsigned long minPulseWidth; // Minimum pulse width for this state
   unsigned long maxPulseWidth; // Maximum pulse width for this state
@@ -15,12 +16,17 @@ struct LedState {
   const char* name;           // Name of the state for debugging
 };
 
-// Define the possible states based on pulse width ranges
+// Different color states, 500 micro second thresholds bc PWM is NOT trustworthy (I think, idrk)
+
 const LedState LED_STATES[] = {
-  {0, 1024, strip.Color(255, 0, 0), "Red"},      // Pulse width 0-1024 => Red
-  {1025, 2048, strip.Color(0, 255, 0), "Green"}, // Pulse width 1025-2048 => Green
-  {2049, 3072, strip.Color(0, 0, 255), "Blue"},  // Pulse width 2049-3072 => Blue
-  {3073, 4096, strip.Color(255, 255, 255), "White"} // Pulse width 3073-4096 => White
+  {0, 750, strip.Color(255, 0, 0), "Red"},       // Pulse width 0-750 => Red
+  {751, 1250, strip.Color(255, 165, 0), "Orange"}, // Pulse width 751-1250 => Orange
+  {1251, 1750, strip.Color(0, 255, 0), "Green"}, // Pulse width 1251-1750 => Green
+  {1751, 2250, strip.Color(128, 0, 128), "Purple"}, // Pulse width 1751-2250 => Purple
+  {2251, 2750, strip.Color(0, 0, 255), "Blue"},  // Pulse width 2251-2750 => Blue
+  {2751, 3250, strip.Color(255, 255, 0), "Yellow"}, // Pulse width 2751-3250 => Yellow
+  {3251, 3750, strip.Color(255, 255, 255), "White"}, // Pulse width 3251-3750 => White
+  {3751, 4096, strip.Color(0, 0, 0), "Off"}     // Pulse width 3751-4096 => Off (black)
 };
 
 const int NUM_STATES = sizeof(LED_STATES) / sizeof(LED_STATES[0]);
@@ -29,9 +35,8 @@ void setup() {
   strip.begin(); // Initialize the LED strip
   strip.show();  // Initialize all LEDs to 'off'
   
-  pinMode(A0, INPUT);  // Set A0 as input for PWM signal
+  pinMode(A0, INPUT);  // Set A0 as input for PWM signal (input from rio)
   
-  // Initialize serial for debugging
   Serial.begin(9600);
   Serial.println("RGB LED Controller Started");
 }
@@ -40,24 +45,21 @@ void loop() {
   // Read the PWM pulse width from A0
   pulseWidth = pulseIn(A0, HIGH);
   
+  if (pulseWidth == previousPulseWidth) {
+    // W optimization, if the pulse width hasn't changed, no need to update the LEDs
+    delay(20);
+    return;
+  }
+
   // Find the corresponding color state based on the pulse width
   for (int i = 0; i < NUM_STATES; i++) {
     if (pulseWidth >= LED_STATES[i].minPulseWidth && pulseWidth <= LED_STATES[i].maxPulseWidth) {
       // Set all LEDs to the corresponding color for this state
       setLedColor(LED_STATES[i].color);
-      
-      // Debug output
-      Serial.print("Pulse Width: ");
-      Serial.print(pulseWidth);
-      Serial.print(" µs | State: ");
-      Serial.print(LED_STATES[i].name);
-      Serial.print(" | Color: ");
-      Serial.println(LED_STATES[i].color, HEX);
-      
       break;
     }
   }
-  
+  previousPulseWidth = pulseWidth;
   delay(20); 
 }
 

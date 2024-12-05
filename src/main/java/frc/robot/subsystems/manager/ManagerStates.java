@@ -4,19 +4,21 @@ import frc.robot.pioneersLib.subsystem.SubsystemStates;
 import frc.robot.subsystems.LED.LEDStates;
 
 public enum ManagerStates implements SubsystemStates {
-    RED(LEDStates.RED),
-    GREEN(LEDStates.GREEN),
-    BLUE(LEDStates.BLUE);
+    RED("Red", LEDStates.RED),
+    GREEN("Green", LEDStates.GREEN),
+    BLUE("Blue", LEDStates.BLUE);
 
     private LEDStates LEDState;
+    private String stateString;
         
-    ManagerStates(LEDStates LEDState) {
+    ManagerStates(String stateString, LEDStates LEDState) {
         this.LEDState = LEDState;
+        this.stateString = stateString;
     }
 
     @Override
     public String getStateString() {
-        return null;
+        return stateString;
     }
 
     public LEDStates getLEDState() {

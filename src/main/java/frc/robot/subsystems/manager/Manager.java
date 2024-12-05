@@ -30,6 +30,7 @@ public class Manager extends Subsystem<ManagerStates> {
     @Override
     public void runState() {
         led.setState(getState().getLEDState());
+        led.runState();
 
         SmartDashboard.putString("Manager State", getState().getStateString());
     }
